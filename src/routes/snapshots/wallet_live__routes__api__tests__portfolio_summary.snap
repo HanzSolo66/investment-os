@@ -1,0 +1,8 @@
+---
+source: src/routes/api.rs
+expression: summary
+---
+{
+  "total_assets": 1,
+  "portfolio_value": 0.0
+}

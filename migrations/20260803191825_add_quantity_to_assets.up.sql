@@ -1,0 +1,3 @@
+-- Add up migration script here
+ALTER TABLE assets
+ADD COLUMN quantity DOUBLE PRECISION NOT NULL DEFAULT 0;

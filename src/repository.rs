@@ -16,21 +16,67 @@ impl Repository {
     pub async fn list_assets(&self) -> sqlx::Result<Vec<Asset>> {
         sqlx::query_as!(
             Asset,
-            "SELECT id, name, unit_value
-             FROM assets;"
+            r#"
+            SELECT
+                id,
+                name,
+                unit_value,
+                quantity
+            FROM assets
+            ORDER BY id;
+            "#
         )
         .fetch_all(&self.db)
         .await
     }
 
-    pub async fn create_asset(&self, name: String, unit_value: f64) -> sqlx::Result<Asset> {
+    pub async fn asset_name_exists(
+        &self,
+        name: &str,
+        exclude_id: Option<i64>,
+    ) -> sqlx::Result<bool> {
+        let exists = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM assets
+                WHERE LOWER(name) = LOWER($1)
+                  AND ($2::BIGINT IS NULL OR id <> $2)
+            ) AS "exists!"
+            "#,
+            name,
+            exclude_id
+        )
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(exists)
+    }
+
+    pub async fn create_asset(
+        &self,
+        name: String,
+        unit_value: f64,
+        quantity: f64,
+    ) -> sqlx::Result<Asset> {
         sqlx::query_as!(
             Asset,
-            "INSERT INTO assets (name, unit_value)
-             VALUES ($1, $2)
-             RETURNING id, name, unit_value;",
+            r#"
+            INSERT INTO assets (
+                name,
+                unit_value,
+                quantity
+            )
+            VALUES ($1, $2, $3)
+            RETURNING
+                id,
+                name,
+                unit_value,
+                quantity;
+            "#,
             name,
-            unit_value
+            unit_value,
+            quantity
         )
         .fetch_one(&self.db)
         .await
@@ -41,30 +87,62 @@ impl Repository {
         asset_id: i64,
         name: Option<String>,
         unit_value: Option<f64>,
+        quantity: Option<f64>,
     ) -> sqlx::Result<Option<Asset>> {
         sqlx::query_as!(
             Asset,
-            "UPDATE assets
-             SET name=COALESCE($2, name),
-                 unit_value=COALESCE($3, unit_value)
-             WHERE id=$1
-             RETURNING id, name, unit_value;",
+            r#"
+            UPDATE assets
+            SET
+                name = COALESCE($2, name),
+                unit_value = COALESCE($3, unit_value),
+                quantity = COALESCE($4, quantity)
+            WHERE id = $1
+            RETURNING
+                id,
+                name,
+                unit_value,
+                quantity;
+            "#,
             asset_id,
             name,
-            unit_value
+            unit_value,
+            quantity
         )
         .fetch_optional(&self.db)
         .await
     }
 
+    pub async fn delete_asset(&self, asset_id: i64) -> sqlx::Result<bool> {
+        let result = sqlx::query!(
+            r#"
+            DELETE FROM assets
+            WHERE id = $1;
+            "#,
+            asset_id
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
     pub async fn add_user(&self, username: &str, password_hash: &str) -> sqlx::Result<UserRecord> {
         sqlx::query_as!(
             UserRecord,
-            "INSERT INTO users (username, password_hash)
-             VALUES ($1, $2)
-             RETURNING id, username, password_hash;",
+            r#"
+            INSERT INTO users (
+                username,
+                password_hash
+            )
+            VALUES ($1, $2)
+            RETURNING
+                id,
+                username,
+                password_hash;
+            "#,
             username,
-            password_hash,
+            password_hash
         )
         .fetch_one(&self.db)
         .await
@@ -73,9 +151,14 @@ impl Repository {
     pub async fn get_user_by_name(&self, username: &str) -> sqlx::Result<Option<UserRecord>> {
         sqlx::query_as!(
             UserRecord,
-            "SELECT id, username, password_hash
-             FROM users
-             WHERE username = $1;",
+            r#"
+            SELECT
+                id,
+                username,
+                password_hash
+            FROM users
+            WHERE username = $1;
+            "#,
             username
         )
         .fetch_optional(&self.db)
