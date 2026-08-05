@@ -1,47 +1,100 @@
-use axum::{Json, http::StatusCode, response::IntoResponse};
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("Missing Authorization Headers")]
+    #[error("missing authorization")]
     MissingAuthorization,
-    #[error("Invalid Credentials")]
+
+    #[error("invalid credentials")]
     InvalidCredentials,
-    #[error("Asset does not exist")]
+
+    #[error("asset does not exist")]
     AssetDoesNotExist,
-    #[error("User does not exist")]
+
+    #[error("user does not exist")]
     UserDoesNotExist,
-    #[error("This username is already registered")]
+
+    #[error("username is already registered")]
     UsernameTaken,
+
+    #[error("invalid password hash")]
+    InvalidPasswordHash,
+
+    #[error("application configuration is missing: {0}")]
+    Configuration(&'static str),
+
     #[error(transparent)]
     Database(#[from] sqlx::Error),
+
     #[error(transparent)]
     Template(#[from] askama::Error),
+
     #[error(transparent)]
     Jwt(#[from] jwt_simple::Error),
 }
 
 #[derive(Serialize)]
-pub struct ErrorResponse {
-    error: String,
+struct ErrorResponse {
+    error: &'static str,
 }
 
 impl IntoResponse for AppError {
-    fn into_response(self) -> axum::response::Response {
-        let error_response = ErrorResponse {
-            error: self.to_string(),
-        };
-
-        let status = match self {
-            Self::UsernameTaken | Self::MissingAuthorization => StatusCode::BAD_REQUEST,
-            Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
-            Self::AssetDoesNotExist | Self::UserDoesNotExist => StatusCode::NOT_FOUND,
-            Self::Database(_) | Self::Template(_) | Self::Jwt(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
+    fn into_response(self) -> Response {
+        let (status, public_message, should_log) = match &self {
+            Self::MissingAuthorization => {
+                (StatusCode::UNAUTHORIZED, "Autenticação necessária.", false)
             }
+
+            Self::InvalidCredentials | Self::Jwt(_) => (
+                StatusCode::UNAUTHORIZED,
+                "Sessão inválida, expirada ou credenciais incorretas.",
+                false,
+            ),
+
+            Self::AssetDoesNotExist => (
+                StatusCode::NOT_FOUND,
+                "O ativo solicitado não foi encontrado.",
+                false,
+            ),
+
+            Self::UserDoesNotExist => (
+                StatusCode::NOT_FOUND,
+                "O usuário solicitado não foi encontrado.",
+                false,
+            ),
+
+            Self::UsernameTaken => (
+                StatusCode::CONFLICT,
+                "Este nome de usuário já está em uso.",
+                false,
+            ),
+
+            Self::InvalidPasswordHash
+            | Self::Configuration(_)
+            | Self::Database(_)
+            | Self::Template(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Ocorreu um erro interno. Tente novamente.",
+                true,
+            ),
         };
 
-        (status, Json(error_response)).into_response()
+        if should_log {
+            tracing::error!(error = ?self, "internal application error");
+        }
+
+        (
+            status,
+            Json(ErrorResponse {
+                error: public_message,
+            }),
+        )
+            .into_response()
     }
 }

@@ -1,1 +1,14 @@
 /target
+.env
+.env.*
+!.env.example
+*.log
+*.pem
+*.key
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+security-backup-*/
+security-fix-backup-*/
+user-isolation-backup-*/

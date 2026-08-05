@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, env};
 
 use axum::extract::FromRequestParts;
 use axum_extra::extract::CookieJar;
@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{app::AppState, error::AppError, repository::Repository};
 
-const SECRET_KEY: &[u8] = b"im-so-secret";
+const TOKEN_DURATION_MINUTES: u64 = 30;
+const MINIMUM_SECRET_LENGTH: usize = 32;
 
 pub struct UnauthenticatedUser {
     username: String,
@@ -24,26 +25,39 @@ impl UnauthenticatedUser {
     }
 
     pub async fn authenticate(&self, repository: &Repository) -> Result<User, AppError> {
-        let user_record = match repository.get_user_by_name(&self.username).await? {
-            Some(user_record) => user_record,
-            None => return Err(AppError::UserDoesNotExist),
-        };
+        let user_record = repository
+            .get_user_by_name(&self.username)
+            .await?
+            .ok_or(AppError::UserDoesNotExist)?;
 
         match password_auth::verify_password(&self.password, &user_record.password_hash) {
             Ok(()) => Ok(User::new(user_record.id, user_record.username)),
+
             Err(VerifyError::PasswordInvalid) => Err(AppError::InvalidCredentials),
-            Err(VerifyError::Parse(err)) => panic!("Hashing algorithm failed: {err}"),
+
+            Err(error) => {
+                tracing::error!(
+                    error = ?error,
+                    user_id = user_record.id,
+                    "stored password hash could not be verified"
+                );
+
+                Err(AppError::InvalidPasswordHash)
+            }
         }
     }
 
     pub async fn register(self, repository: &Repository) -> Result<User, AppError> {
         let password_hash = password_auth::generate_hash(self.password);
+
         let user_record = match repository.add_user(&self.username, &password_hash).await {
             Ok(user_record) => user_record,
-            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+
+            Err(sqlx::Error::Database(db_error)) if db_error.is_unique_violation() => {
                 return Err(AppError::UsernameTaken);
             }
-            Err(err) => return Err(AppError::Database(err)),
+
+            Err(error) => return Err(AppError::Database(error)),
         };
 
         Ok(User::new(user_record.id, user_record.username))
@@ -56,11 +70,11 @@ pub struct User {
 }
 
 impl User {
-    fn new(id: i64, username: String) -> Self {
+    pub(crate) fn new(id: i64, username: String) -> Self {
         Self { id, username }
     }
 
-    pub const fn username(&self) -> &String {
+    pub fn username(&self) -> &str {
         &self.username
     }
 
@@ -69,15 +83,23 @@ impl User {
     }
 
     pub fn auth_token(self) -> Result<String, AppError> {
-        let key = HS256Key::from_bytes(SECRET_KEY);
-        let claims = Claims::with_custom_claims(UserClaims::from(self), Duration::from_mins(10));
-        let token = key.authenticate(claims)?;
-        Ok(token)
+        let secret = jwt_secret()?;
+        let key = HS256Key::from_bytes(secret.as_bytes());
+
+        let claims = Claims::with_custom_claims(
+            UserClaims::from(self),
+            Duration::from_mins(TOKEN_DURATION_MINUTES),
+        );
+
+        Ok(key.authenticate(claims)?)
     }
 
     pub fn from_auth_token(token: &str) -> Result<Self, AppError> {
-        let key = HS256Key::from_bytes(SECRET_KEY);
+        let secret = jwt_secret()?;
+        let key = HS256Key::from_bytes(secret.as_bytes());
+
         let claims: UserClaims = key.verify_token(token, None)?.custom;
+
         Ok(Self::new(claims.id, claims.username))
     }
 }
@@ -91,12 +113,12 @@ impl FromRequestParts<AppState> for User {
     ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_headers(&parts.headers);
 
-        let token = match jar.get("token") {
-            Some(token) => token.value(),
-            None => return Err(AppError::MissingAuthorization),
-        };
+        let token = jar
+            .get("token")
+            .map(|cookie| cookie.value())
+            .ok_or(AppError::MissingAuthorization)?;
 
-        User::from_auth_token(token)
+        Self::from_auth_token(token)
     }
 }
 
@@ -121,4 +143,20 @@ impl From<User> for UserClaims {
     fn from(User { id, username }: User) -> Self {
         Self { id, username }
     }
+}
+
+fn jwt_secret() -> Result<String, AppError> {
+    let secret = env::var("JWT_SECRET").map_err(|_| AppError::Configuration("JWT_SECRET"))?;
+
+    if secret.len() < MINIMUM_SECRET_LENGTH {
+        tracing::error!(
+            configured_length = secret.len(),
+            minimum_length = MINIMUM_SECRET_LENGTH,
+            "JWT_SECRET is too short"
+        );
+
+        return Err(AppError::Configuration("JWT_SECRET"));
+    }
+
+    Ok(secret)
 }

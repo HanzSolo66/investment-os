@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Entrar | Investment OS</title>
+    <title>Criar conta | Investment OS</title>
 
     <style>
         :root {
@@ -15,8 +15,6 @@
             --muted: #98a2b5;
             --accent: #8b5cf6;
             --cyan: #22d3ee;
-            --danger: #fb7185;
-            --success: #32d583;
         }
 
         * { box-sizing: border-box; }
@@ -88,7 +86,6 @@
         }
 
         form { display: grid; gap: 16px; }
-
         .field { display: grid; gap: 8px; }
 
         label {
@@ -113,6 +110,12 @@
             transform: translateY(-1px);
             border-color: rgba(139,92,246,.62);
             box-shadow: 0 0 0 4px rgba(139,92,246,.12);
+        }
+
+        .help {
+            color: #69748a;
+            font-size: 10px;
+            line-height: 1.45;
         }
 
         button {
@@ -157,12 +160,6 @@
             line-height: 1.45;
         }
 
-        .alert.success {
-            border-color: rgba(50,213,131,.24);
-            color: #a7f3d0;
-            background: rgba(50,213,131,.10);
-        }
-
         .alert.show { display: block; animation: alert-in 300ms ease-out; }
 
         @keyframes enter {
@@ -194,15 +191,15 @@
         </div>
 
         <section class="card">
-            <h1>Bem-vindo de volta.</h1>
+            <h1>Crie sua conta.</h1>
 
             <p class="subtitle">
-                Entre para acessar sua carteira e continuar acompanhando seus ativos.
+                Configure seu acesso para começar a organizar sua carteira.
             </p>
 
             <div id="alert" class="alert" role="status"></div>
 
-            <form method="post" action="/login">
+            <form method="post" action="/register">
                 <div class="field">
                     <label for="username">Usuário</label>
                     <input
@@ -214,6 +211,7 @@
                         autocomplete="username"
                         required
                     >
+                    <span class="help">Entre 3 e 40 caracteres.</span>
                 </div>
 
                 <div class="field">
@@ -222,17 +220,33 @@
                         id="password"
                         name="password"
                         type="password"
-                        autocomplete="current-password"
+                        minlength="8"
+                        maxlength="128"
+                        autocomplete="new-password"
+                        required
+                    >
+                    <span class="help">Use pelo menos 8 caracteres.</span>
+                </div>
+
+                <div class="field">
+                    <label for="password_confirmation">Confirmar senha</label>
+                    <input
+                        id="password_confirmation"
+                        name="password_confirmation"
+                        type="password"
+                        minlength="8"
+                        maxlength="128"
+                        autocomplete="new-password"
                         required
                     >
                 </div>
 
-                <button type="submit">Entrar</button>
+                <button type="submit">Criar conta</button>
             </form>
 
             <p class="switch">
-                Ainda não possui uma conta?
-                <a href="/register">Criar conta</a>
+                Já possui uma conta?
+                <a href="/login">Entrar</a>
             </p>
         </section>
     </main>
@@ -243,20 +257,16 @@
         const alert = document.querySelector("#alert");
 
         const messages = {
-            "invalid-fields": "Preencha usuário e senha.",
-            "invalid-credentials": "Usuário ou senha incorretos.",
-            "logged-out": "Sessão encerrada com segurança."
+            "invalid-username": "O usuário deve possuir entre 3 e 40 caracteres.",
+            "invalid-password": "A senha deve possuir entre 8 e 128 caracteres.",
+            "password-mismatch": "A confirmação não corresponde à senha.",
+            "username-taken": "Este nome de usuário já está em uso."
         };
 
         if (messages[status]) {
             alert.textContent = messages[status];
-
-            if (status === "logged-out") {
-                alert.classList.add("success");
-            }
-
             alert.classList.add("show");
-            window.history.replaceState({}, "", "/login");
+            window.history.replaceState({}, "", "/register");
         }
     </script>
 </body>

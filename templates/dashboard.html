@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
@@ -253,13 +253,39 @@
         }
 
         .profile-card {
-            display: flex;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
             align-items: center;
             gap: 11px;
             padding: 12px;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 15px;
+        }
+
+        .logout-button {
+            display: grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            color: var(--text-muted);
+            background: rgba(255,255,255,.035);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition:
+                color 160ms ease,
+                background 160ms ease,
+                border-color 160ms ease,
+                transform 160ms var(--ease-out);
+        }
+
+        .logout-button:hover {
+            color: #fecdd3;
+            background: var(--danger-soft);
+            border-color: rgba(251,113,133,.28);
+            transform: translateY(-1px);
         }
 
         .avatar {
@@ -1093,6 +1119,17 @@
                             Sessão ativa
                         </div>
                     </div>
+
+                    <form method="post" action="/logout">
+                        <button
+                            class="logout-button"
+                            type="submit"
+                            title="Encerrar sessão"
+                            aria-label="Encerrar sessão"
+                        >
+                            ↪
+                        </button>
+                    </form>
                 </div>
             </div>
         </aside>
@@ -1619,11 +1656,13 @@
             status === "created"
             || status === "updated"
             || status === "deleted"
+            || status === "registered"
         ) {
             const messages = {
                 created: "Ativo cadastrado com sucesso.",
                 updated: "Ativo atualizado com sucesso.",
-                deleted: "Ativo excluído com sucesso."
+                deleted: "Ativo excluído com sucesso.",
+                registered: "Conta criada e sessão iniciada com segurança."
             };
 
             toast.querySelector(".toast-text").textContent =

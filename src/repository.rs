@@ -13,7 +13,7 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub async fn list_assets(&self) -> sqlx::Result<Vec<Asset>> {
+    pub async fn list_assets(&self, user_id: i64) -> sqlx::Result<Vec<Asset>> {
         sqlx::query_as!(
             Asset,
             r#"
@@ -23,8 +23,10 @@ impl Repository {
                 unit_value,
                 quantity
             FROM assets
+            WHERE user_id = $1
             ORDER BY id;
-            "#
+            "#,
+            user_id
         )
         .fetch_all(&self.db)
         .await
@@ -32,6 +34,7 @@ impl Repository {
 
     pub async fn asset_name_exists(
         &self,
+        user_id: i64,
         name: &str,
         exclude_id: Option<i64>,
     ) -> sqlx::Result<bool> {
@@ -40,10 +43,12 @@ impl Repository {
             SELECT EXISTS (
                 SELECT 1
                 FROM assets
-                WHERE LOWER(name) = LOWER($1)
-                  AND ($2::BIGINT IS NULL OR id <> $2)
+                WHERE user_id = $1
+                  AND LOWER(name) = LOWER($2)
+                  AND ($3::BIGINT IS NULL OR id <> $3)
             ) AS "exists!"
             "#,
+            user_id,
             name,
             exclude_id
         )
@@ -55,6 +60,7 @@ impl Repository {
 
     pub async fn create_asset(
         &self,
+        user_id: i64,
         name: String,
         unit_value: f64,
         quantity: f64,
@@ -63,17 +69,19 @@ impl Repository {
             Asset,
             r#"
             INSERT INTO assets (
+                user_id,
                 name,
                 unit_value,
                 quantity
             )
-            VALUES ($1, $2, $3)
+            VALUES ($1, $2, $3, $4)
             RETURNING
                 id,
                 name,
                 unit_value,
                 quantity;
             "#,
+            user_id,
             name,
             unit_value,
             quantity
@@ -84,6 +92,7 @@ impl Repository {
 
     pub async fn update_asset(
         &self,
+        user_id: i64,
         asset_id: i64,
         name: Option<String>,
         unit_value: Option<f64>,
@@ -94,10 +103,11 @@ impl Repository {
             r#"
             UPDATE assets
             SET
-                name = COALESCE($2, name),
-                unit_value = COALESCE($3, unit_value),
-                quantity = COALESCE($4, quantity)
+                name = COALESCE($3, name),
+                unit_value = COALESCE($4, unit_value),
+                quantity = COALESCE($5, quantity)
             WHERE id = $1
+              AND user_id = $2
             RETURNING
                 id,
                 name,
@@ -105,6 +115,7 @@ impl Repository {
                 quantity;
             "#,
             asset_id,
+            user_id,
             name,
             unit_value,
             quantity
@@ -113,13 +124,15 @@ impl Repository {
         .await
     }
 
-    pub async fn delete_asset(&self, asset_id: i64) -> sqlx::Result<bool> {
+    pub async fn delete_asset(&self, user_id: i64, asset_id: i64) -> sqlx::Result<bool> {
         let result = sqlx::query!(
             r#"
             DELETE FROM assets
-            WHERE id = $1;
+            WHERE id = $1
+              AND user_id = $2;
             "#,
-            asset_id
+            asset_id,
+            user_id
         )
         .execute(&self.db)
         .await?;

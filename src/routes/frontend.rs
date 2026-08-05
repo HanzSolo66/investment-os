@@ -1,10 +1,15 @@
+use std::env;
+
 use askama::Template;
 use axum::{
     Form, Router,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
 };
-use axum_extra::extract::{CookieJar, cookie::Cookie};
+use axum_extra::extract::{
+    CookieJar,
+    cookie::{Cookie, SameSite},
+};
 use serde::Deserialize;
 
 use crate::{
@@ -19,6 +24,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(index))
         .route("/login", get(login_page).post(login))
+        .route("/register", get(register_page).post(register))
+        .route("/logout", post(logout))
         .route("/assets/create", post(create_asset_from_form))
         .route("/assets/update", post(update_asset_from_form))
         .route("/assets/delete", post(delete_asset_from_form))
@@ -28,9 +35,24 @@ pub fn router() -> Router<AppState> {
 #[template(path = "login.html")]
 struct LoginPage;
 
-async fn login_page() -> Result<Html<String>, AppError> {
-    let html = LoginPage.render()?;
-    Ok(Html(html))
+async fn login_page(maybe_user: Option<User>) -> Result<Response, AppError> {
+    if maybe_user.is_some() {
+        return Ok(Redirect::to("/").into_response());
+    }
+
+    Ok(Html(LoginPage.render()?).into_response())
+}
+
+#[derive(Template)]
+#[template(path = "register.html")]
+struct RegisterPage;
+
+async fn register_page(maybe_user: Option<User>) -> Result<Response, AppError> {
+    if maybe_user.is_some() {
+        return Ok(Redirect::to("/").into_response());
+    }
+
+    Ok(Html(RegisterPage.render()?).into_response())
 }
 
 #[derive(Deserialize)]
@@ -43,20 +65,104 @@ async fn login(
     repository: Repository,
     jar: CookieJar,
     Form(request): Form<LoginForm>,
-) -> Result<impl IntoResponse, AppError> {
-    let unauthenticated_user = UnauthenticatedUser::new(request.username, request.password);
+) -> Result<(CookieJar, Redirect), AppError> {
+    let username = request.username.trim().to_string();
+
+    if username.is_empty() || request.password.is_empty() {
+        return Ok((jar, Redirect::to("/login?status=invalid-fields")));
+    }
+
+    let unauthenticated_user = UnauthenticatedUser::new(username, request.password);
 
     let user = match unauthenticated_user.authenticate(&repository).await {
         Ok(user) => user,
-        Err(AppError::UserDoesNotExist) => unauthenticated_user.register(&repository).await?,
-        Err(other_error) => return Err(other_error),
+
+        Err(AppError::UserDoesNotExist) | Err(AppError::InvalidCredentials) => {
+            return Ok((jar, Redirect::to("/login?status=invalid-credentials")));
+        }
+
+        Err(error) => return Err(error),
     };
 
     let token = user.auth_token()?;
-
-    let cookie = Cookie::build(("token", token)).http_only(true).path("/");
+    let cookie = authentication_cookie(token);
 
     Ok((jar.add(cookie), Redirect::to("/")))
+}
+
+#[derive(Deserialize)]
+struct RegisterForm {
+    username: String,
+    password: String,
+    password_confirmation: String,
+}
+
+async fn register(
+    repository: Repository,
+    jar: CookieJar,
+    Form(request): Form<RegisterForm>,
+) -> Result<(CookieJar, Redirect), AppError> {
+    let username = request.username.trim().to_string();
+    let username_length = username.chars().count();
+    let password_length = request.password.chars().count();
+
+    if !(3..=40).contains(&username_length) {
+        return Ok((jar, Redirect::to("/register?status=invalid-username")));
+    }
+
+    if !(8..=128).contains(&password_length) {
+        return Ok((jar, Redirect::to("/register?status=invalid-password")));
+    }
+
+    if request.password != request.password_confirmation {
+        return Ok((jar, Redirect::to("/register?status=password-mismatch")));
+    }
+
+    let unauthenticated_user = UnauthenticatedUser::new(username, request.password);
+
+    let user = match unauthenticated_user.register(&repository).await {
+        Ok(user) => user,
+
+        Err(AppError::UsernameTaken) => {
+            return Ok((jar, Redirect::to("/register?status=username-taken")));
+        }
+
+        Err(error) => return Err(error),
+    };
+
+    let token = user.auth_token()?;
+    let cookie = authentication_cookie(token);
+
+    Ok((jar.add(cookie), Redirect::to("/?status=registered")))
+}
+
+async fn logout(jar: CookieJar) -> (CookieJar, Redirect) {
+    let removal_cookie = Cookie::build("token").path("/").build();
+
+    (
+        jar.remove(removal_cookie),
+        Redirect::to("/login?status=logged-out"),
+    )
+}
+
+fn authentication_cookie(token: String) -> Cookie<'static> {
+    Cookie::build(("token", token))
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .secure(cookie_secure())
+        .path("/")
+        .build()
+}
+
+fn cookie_secure() -> bool {
+    env::var("COOKIE_SECURE")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "true" | "1" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
 }
 
 #[derive(Deserialize)]
@@ -71,9 +177,9 @@ async fn create_asset_from_form(
     repository: Repository,
     Form(request): Form<CreateAssetForm>,
 ) -> Result<Redirect, AppError> {
-    if maybe_user.is_none() {
+    let Some(user) = maybe_user else {
         return Ok(Redirect::to("/login"));
-    }
+    };
 
     let name = request.name.trim().to_string();
 
@@ -89,12 +195,12 @@ async fn create_asset_from_form(
         return Ok(Redirect::to("/?status=invalid-quantity"));
     }
 
-    if repository.asset_name_exists(&name, None).await? {
+    if repository.asset_name_exists(user.id(), &name, None).await? {
         return Ok(Redirect::to("/?status=duplicate"));
     }
 
     repository
-        .create_asset(name, request.unit_value, request.quantity)
+        .create_asset(user.id(), name, request.unit_value, request.quantity)
         .await?;
 
     Ok(Redirect::to("/?status=created"))
@@ -113,9 +219,9 @@ async fn update_asset_from_form(
     repository: Repository,
     Form(request): Form<UpdateAssetForm>,
 ) -> Result<Redirect, AppError> {
-    if maybe_user.is_none() {
+    let Some(user) = maybe_user else {
         return Ok(Redirect::to("/login"));
-    }
+    };
 
     let name = request.name.trim().to_string();
 
@@ -136,7 +242,7 @@ async fn update_asset_from_form(
     }
 
     if repository
-        .asset_name_exists(&name, Some(request.id))
+        .asset_name_exists(user.id(), &name, Some(request.id))
         .await?
     {
         return Ok(Redirect::to("/?status=duplicate"));
@@ -144,6 +250,7 @@ async fn update_asset_from_form(
 
     let updated = repository
         .update_asset(
+            user.id(),
             request.id,
             Some(name),
             Some(request.unit_value),
@@ -167,15 +274,15 @@ async fn delete_asset_from_form(
     repository: Repository,
     Form(request): Form<DeleteAssetForm>,
 ) -> Result<Redirect, AppError> {
-    if maybe_user.is_none() {
+    let Some(user) = maybe_user else {
         return Ok(Redirect::to("/login"));
-    }
+    };
 
     if request.id <= 0 {
         return Ok(Redirect::to("/?status=invalid"));
     }
 
-    let deleted = repository.delete_asset(request.id).await?;
+    let deleted = repository.delete_asset(user.id(), request.id).await?;
 
     if deleted {
         Ok(Redirect::to("/?status=deleted"))
@@ -210,7 +317,7 @@ async fn index(maybe_user: Option<User>, repository: Repository) -> Result<Respo
         return Ok(Redirect::to("/login").into_response());
     };
 
-    let assets = repository.list_assets().await?;
+    let assets = repository.list_assets(user.id()).await?;
     let summary = PortfolioSummary::from_assets(&assets);
 
     let asset_views = assets
