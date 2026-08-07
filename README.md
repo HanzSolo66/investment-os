@@ -1,8 +1,25 @@
-﻿# Investment OS
+# Investment OS
 
 AplicaÃ§Ã£o fullstack para gerenciamento de uma carteira de investimentos, desenvolvida em Rust como evoluÃ§Ã£o do projeto final do Bootcamp DIO.
 
 O sistema permite criar uma conta, autenticar-se e administrar ativos em uma carteira individual. Cada usuÃ¡rio possui dados isolados, e nenhuma conta consegue visualizar, editar ou excluir ativos pertencentes a outra.
+
+
+## Screenshots
+
+### Login e autenticação
+
+![Tela de login do Investment OS](docs/screenshots/login.png)
+
+### Dashboard da carteira
+
+![Dashboard do Investment OS](docs/screenshots/dashboard.png)
+
+### Isolamento de carteiras por usuário
+
+Cada conta acessa somente os ativos vinculados ao próprio usuário.
+
+![Isolamento de carteiras no Investment OS](docs/screenshots/isolamento.png)
 
 ## Principais funcionalidades
 
