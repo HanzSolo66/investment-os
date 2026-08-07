@@ -13,3 +13,9 @@ security-backup-*/
 security-fix-backup-*/
 user-isolation-backup-*/
 final-review-backup-*/
+
+node_modules/
+
+playwright-report/
+
+test-results/

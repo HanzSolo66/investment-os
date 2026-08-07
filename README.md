@@ -1,12 +1,12 @@
 # Investment OS
 
-AplicaÃ§Ã£o fullstack para gerenciamento de uma carteira de investimentos, desenvolvida em Rust como evoluÃ§Ã£o do projeto final do Bootcamp DIO.
+Aplicação fullstack para gerenciamento de uma carteira de investimentos, desenvolvida em Rust como evolução do projeto final do Bootcamp DIO.
 
-O sistema permite criar uma conta, autenticar-se e administrar ativos em uma carteira individual. Cada usuÃ¡rio possui dados isolados, e nenhuma conta consegue visualizar, editar ou excluir ativos pertencentes a outra.
+O sistema permite criar uma conta, autenticar-se e administrar ativos em uma carteira individual. Cada usuário possui dados isolados, e nenhuma conta consegue visualizar, editar ou excluir ativos pertencentes a outra.
 
 ## Screenshots
 
-### Login e autenticaÃ§Ã£o
+### Login e autenticação
 
 ![Tela de login do Investment OS](docs/screenshots/login.png)
 
@@ -14,25 +14,26 @@ O sistema permite criar uma conta, autenticar-se e administrar ativos em uma car
 
 ![Dashboard do Investment OS](docs/screenshots/dashboard.png)
 
-### Isolamento de carteiras por usuÃ¡rio
+### Isolamento de carteiras por usuário
 
-Cada conta acessa somente os ativos vinculados ao prÃ³prio usuÃ¡rio.
+Cada conta acessa somente os ativos vinculados ao próprio usuário.
 
 ![Isolamento de carteiras no Investment OS](docs/screenshots/isolamento.png)
 
 ## Principais funcionalidades
 
 - cadastro, login e logout;
-- autenticaÃ§Ã£o com JWT armazenado em cookie `HttpOnly`;
+- autenticação com JWT armazenado em cookie `HttpOnly`;
 - hash seguro de senhas;
-- carteiras independentes por usuÃ¡rio;
-- cadastro, listagem, ediÃ§Ã£o e exclusÃ£o de ativos;
-- cÃ¡lculo automÃ¡tico do valor de cada posiÃ§Ã£o e do patrimÃ´nio total;
-- validaÃ§Ã£o de nomes, valores, quantidades e duplicidades;
-- API JSON protegida por autenticaÃ§Ã£o;
-- dashboard responsivo com feedback visual e animaÃ§Ãµes;
+- carteiras independentes por usuário;
+- cadastro, listagem, edição e exclusão de ativos;
+- cálculo automático do valor de cada posição e do patrimônio total;
+- validação de nomes, valores, quantidades e duplicidades;
+- API JSON protegida por autenticação;
+- dashboard responsivo com feedback visual e animações;
 - migrations SQL versionadas;
-- testes automatizados de CRUD, resumo e isolamento entre usuÃ¡rios.
+- testes Rust de CRUD, resumo, validações e isolamento entre usuários;
+- suíte end-to-end com Playwright em desktop e mobile.
 
 ## Tecnologias
 
@@ -45,6 +46,7 @@ Cada conta acessa somente os ativos vinculados ao prÃ³prio usuÃ¡rio.
 - Docker Compose
 - JWT
 - Argon2 por meio da biblioteca `password-auth`
+- Playwright
 - HTML, CSS e JavaScript sem framework
 
 ## Arquitetura
@@ -52,54 +54,55 @@ Cada conta acessa somente os ativos vinculados ao prÃ³prio usuÃ¡rio.
 ```text
 Navegador
    |
-   |-- pÃ¡ginas Askama e formulÃ¡rios
+   |-- páginas Askama e formulários
    `-- API JSON /api
             |
             v
        Rotas Axum
             |
-            |-- autenticaÃ§Ã£o JWT
-            |-- validaÃ§Ãµes
+            |-- autenticação JWT
+            |-- validações
             `-- Repository
                     |
                     v
                PostgreSQL
 ```
 
-A coluna `user_id` relaciona cada ativo ao proprietÃ¡rio. As consultas de leitura, atualizaÃ§Ã£o e exclusÃ£o sempre incluem o usuÃ¡rio autenticado.
+A coluna `user_id` relaciona cada ativo ao proprietário. As consultas de leitura, atualização e exclusão sempre incluem o usuário autenticado.
 
-## SeguranÃ§a aplicada
+## Segurança aplicada
 
-- segredos carregados por variÃ¡veis de ambiente;
+- segredos carregados por variáveis de ambiente;
 - `.env` ignorado pelo Git;
 - senhas armazenadas apenas como hash;
-- token com expiraÃ§Ã£o;
+- token com expiração;
 - cookie `HttpOnly` e `SameSite=Lax`;
-- opÃ§Ã£o `Secure` para ambientes HTTPS;
-- mensagens pÃºblicas sem detalhes internos do banco;
-- proteÃ§Ã£o contra acesso cruzado entre carteiras;
-- Ã­ndice Ãºnico de nome do ativo por usuÃ¡rio;
-- validaÃ§Ã£o tambÃ©m na API, nÃ£o apenas no navegador.
+- opção `Secure` para ambientes HTTPS;
+- mensagens públicas sem detalhes internos do banco;
+- proteção contra acesso cruzado entre carteiras;
+- índice único de nome do ativo por usuário;
+- validação também na API, não apenas no navegador.
 
-> Este Ã© um projeto educacional e de portfÃ³lio. Para uma operaÃ§Ã£o financeira real ainda seriam necessÃ¡rios, entre outros itens, HTTPS obrigatÃ³rio, proteÃ§Ã£o CSRF dedicada, rate limiting, observabilidade, recuperaÃ§Ã£o de senha e auditoria de seguranÃ§a independente.
+> Este é um projeto educacional e de portfólio. Para uma operação financeira real ainda seriam necessários, entre outros itens, HTTPS obrigatório, proteção CSRF dedicada, rate limiting, observabilidade, recuperação de senha e auditoria de segurança independente.
 
-## PrÃ©-requisitos
+## Pré-requisitos
 
 - Git
 - Rust e Cargo
 - Docker Desktop
 - `sqlx-cli`
+- Node.js e npm para os testes E2E
 - VS Code, opcional
 
-InstalaÃ§Ã£o do SQLx CLI:
+Instalação do SQLx CLI:
 
 ```powershell
 cargo install sqlx-cli --no-default-features --features postgres
 ```
 
-## ConfiguraÃ§Ã£o
+## Configuração
 
-Clone o repositÃ³rio e entre na pasta:
+Clone o repositório e entre na pasta:
 
 ```powershell
 git clone https://github.com/HanzSolo66/investment-os.git
@@ -112,7 +115,7 @@ Crie o arquivo `.env` a partir do exemplo:
 Copy-Item .env.example .env
 ```
 
-No `.env`, substitua os valores de exemplo por segredos longos e aleatÃ³rios.
+No `.env`, substitua os valores de exemplo por segredos longos e aleatórios.
 
 Em desenvolvimento local:
 
@@ -120,7 +123,7 @@ Em desenvolvimento local:
 COOKIE_SECURE=false
 ```
 
-Em produÃ§Ã£o com HTTPS:
+Em produção com HTTPS:
 
 ```env
 COOKIE_SECURE=true
@@ -128,7 +131,7 @@ COOKIE_SECURE=true
 
 ## Executar no Windows
 
-O script de desenvolvimento inicia o Docker quando necessÃ¡rio, sobe o PostgreSQL, aguarda o banco ficar pronto, aplica as migrations e inicia a aplicaÃ§Ã£o:
+O script de desenvolvimento inicia o Docker quando necessário, sobe o PostgreSQL, aguarda o banco ficar pronto, aplica as migrations e inicia a aplicação:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
@@ -140,7 +143,7 @@ Acesse:
 http://localhost:3000
 ```
 
-## ExecuÃ§Ã£o manual
+## Execução manual
 
 ```powershell
 docker compose up -d
@@ -148,27 +151,47 @@ sqlx migrate run
 cargo run
 ```
 
-## VerificaÃ§Ã£o de qualidade
+## Verificação de qualidade
+
+Verificações Rust:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-check.ps1
 ```
 
-O projeto possui testes automatizados para criaÃ§Ã£o, listagem, atualizaÃ§Ã£o, exclusÃ£o, resumo da carteira, validaÃ§Ãµes e isolamento entre usuÃ¡rios.
+Testes end-to-end:
+
+```powershell
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+A suíte Playwright cobre 7 cenários:
+
+- acesso sem sessão redirecionado para login;
+- cadastro, dashboard e CRUD completo;
+- logout e proteção do dashboard;
+- isolamento de carteiras entre usuários;
+- login em viewport mobile;
+- cadastro em viewport mobile;
+- dashboard responsivo em viewport mobile.
+
+Na revisão final do projeto, os 7 cenários E2E foram aprovados.
 
 ## API
 
-Todas as rotas abaixo exigem uma sessÃ£o vÃ¡lida.
+Todas as rotas abaixo exigem uma sessão válida.
 
-| MÃ©todo | Rota | Finalidade |
+| Método | Rota | Finalidade |
 |---|---|---|
-| `GET` | `/api/assets` | Lista os ativos do usuÃ¡rio |
+| `GET` | `/api/assets` | Lista os ativos do usuário |
 | `POST` | `/api/assets` | Cria um ativo |
 | `PATCH` | `/api/assets` | Atualiza um ativo |
 | `DELETE` | `/api/assets/{id}` | Exclui um ativo |
 | `GET` | `/api/portfolio/summary` | Retorna o resumo da carteira |
 
-Exemplo de criaÃ§Ã£o:
+Exemplo de criação:
 
 ```json
 {
@@ -182,40 +205,41 @@ Exemplo de criaÃ§Ã£o:
 
 ```text
 docs/screenshots/        imagens do projeto
-migrations/              alteraÃ§Ãµes versionadas do banco
-scripts/                 automaÃ§Ãµes de execuÃ§Ã£o e qualidade
-src/auth/                autenticaÃ§Ã£o e sessÃ£o
+e2e/                     testes end-to-end com Playwright
+migrations/              alterações versionadas do banco
+scripts/                 automações de execução e qualidade
+src/auth/                autenticação e sessão
 src/routes/api.rs        API JSON e testes
-src/routes/frontend.rs   pÃ¡ginas, formulÃ¡rios e dashboard
+src/routes/frontend.rs   páginas, formulários e dashboard
 src/repository.rs        acesso ao PostgreSQL
 templates/               interfaces Askama
 compose.yml              PostgreSQL local
 ```
 
-## DecisÃµes tÃ©cnicas
+## Decisões técnicas
 
-- O projeto mantÃ©m backend e frontend na mesma aplicaÃ§Ã£o Rust.
-- SQLx faz validaÃ§Ã£o das consultas em tempo de compilaÃ§Ã£o.
-- O banco impÃµe a unicidade do nome do ativo dentro de cada carteira.
-- A autorizaÃ§Ã£o Ã© aplicada no acesso aos dados, nÃ£o apenas na interface.
-- O dashboard nÃ£o depende de frameworks JavaScript externos.
+- O projeto mantém backend e frontend na mesma aplicação Rust.
+- SQLx faz validação das consultas em tempo de compilação.
+- O banco impõe a unicidade do nome do ativo dentro de cada carteira.
+- A autorização é aplicada no acesso aos dados, não apenas na interface.
+- O dashboard não depende de frameworks JavaScript externos.
+- Playwright valida os fluxos críticos da aplicação no navegador.
 
-## EvoluÃ§Ãµes futuras
+## Evoluções futuras
 
-- usar `NUMERIC/DECIMAL` em vez de `DOUBLE PRECISION` para valores monetÃ¡rios;
+- usar `NUMERIC/DECIMAL` em vez de `DOUBLE PRECISION` para valores monetários;
 - adicionar categorias e tipos de ativos;
-- histÃ³rico de movimentaÃ§Ãµes;
-- rentabilidade e grÃ¡ficos;
-- integraÃ§Ã£o com cotaÃ§Ãµes;
-- recuperaÃ§Ã£o de senha;
-- paginaÃ§Ã£o e filtros;
-- testes end-to-end com Playwright;
+- histórico de movimentações;
+- rentabilidade e gráficos;
+- integração com cotações;
+- recuperação de senha;
+- paginação e filtros;
 - deploy com HTTPS e pipeline de CI.
 
-## ApresentaÃ§Ã£o em entrevista
+## Apresentação em entrevista
 
-> Desenvolvi uma aplicaÃ§Ã£o fullstack de carteira de investimentos em Rust. Usei Axum no backend, Askama na interface, SQLx com PostgreSQL e Docker para o ambiente. Implementei autenticaÃ§Ã£o, CRUD completo, cÃ¡lculo do patrimÃ´nio e isolamento de dados entre usuÃ¡rios. TambÃ©m criei migrations, validaÃ§Ãµes e testes automatizados para impedir que uma conta visualize ou altere ativos de outra.
+> Desenvolvi uma aplicação fullstack de carteira de investimentos em Rust. Usei Axum no backend, Askama na interface, SQLx com PostgreSQL e Docker para o ambiente. Implementei autenticação, CRUD completo, cálculo do patrimônio e isolamento de dados entre usuários. Também criei migrations, validações, testes Rust e uma suíte end-to-end com Playwright para validar os fluxos críticos em desktop e mobile.
 
 ## Origem
 
-Projeto desenvolvido a partir do repositÃ³rio-base do desafio da Digital Innovation One e expandido com interface prÃ³pria, autenticaÃ§Ã£o reforÃ§ada, isolamento de dados, validaÃ§Ãµes e automaÃ§Ãµes de desenvolvimento.
+Projeto desenvolvido a partir do repositório-base do desafio da Digital Innovation One e expandido com interface própria, autenticação reforçada, isolamento de dados, validações, testes automatizados e automações de desenvolvimento.
