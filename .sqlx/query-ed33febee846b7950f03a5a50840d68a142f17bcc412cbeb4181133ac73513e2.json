@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE assets\n            SET\n                name = COALESCE($3, name),\n                unit_value = COALESCE($4, unit_value),\n                quantity = COALESCE($5, quantity)\n            WHERE id = $1\n              AND user_id = $2\n            RETURNING\n                id,\n                name,\n                unit_value,\n                quantity;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "unit_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "quantity",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ed33febee846b7950f03a5a50840d68a142f17bcc412cbeb4181133ac73513e2"
+}

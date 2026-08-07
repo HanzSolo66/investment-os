@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO assets (\n                user_id,\n                name,\n                unit_value,\n                quantity\n            )\n            VALUES ($1, $2, $3, $4)\n            RETURNING\n                id,\n                name,\n                unit_value,\n                quantity;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "unit_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "quantity",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bb02f5009d184e4ac982054aa2516b9352d4449ba7f2989d31fa86ed1c3d4987"
+}

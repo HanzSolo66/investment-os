@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM assets\n            WHERE id = $1\n              AND user_id = $2;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ae3a862c465fe0816c3e7af7438a6bd323a8242b65d1ca59539148441048c4e9"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS (\n                SELECT 1\n                FROM assets\n                WHERE user_id = $1\n                  AND LOWER(name) = LOWER($2)\n                  AND ($3::BIGINT IS NULL OR id <> $3)\n            ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "29389d577326ff629c38fab02d4a5010fb7ed8236c6cb7c1356f8d83d352f5dc"
+}
