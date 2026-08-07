@@ -4,10 +4,9 @@ AplicaÃ§Ã£o fullstack para gerenciamento de uma carteira de investimentos, d
 
 O sistema permite criar uma conta, autenticar-se e administrar ativos em uma carteira individual. Cada usuÃ¡rio possui dados isolados, e nenhuma conta consegue visualizar, editar ou excluir ativos pertencentes a outra.
 
-
 ## Screenshots
 
-### Login e autenticação
+### Login e autenticaÃ§Ã£o
 
 ![Tela de login do Investment OS](docs/screenshots/login.png)
 
@@ -15,9 +14,9 @@ O sistema permite criar uma conta, autenticar-se e administrar ativos em uma car
 
 ![Dashboard do Investment OS](docs/screenshots/dashboard.png)
 
-### Isolamento de carteiras por usuário
+### Isolamento de carteiras por usuÃ¡rio
 
-Cada conta acessa somente os ativos vinculados ao próprio usuário.
+Cada conta acessa somente os ativos vinculados ao prÃ³prio usuÃ¡rio.
 
 ![Isolamento de carteiras no Investment OS](docs/screenshots/isolamento.png)
 
@@ -52,18 +51,18 @@ Cada conta acessa somente os ativos vinculados ao próprio usuário.
 
 ```text
 Navegador
-   â”‚
-   â”œâ”€â”€ pÃ¡ginas Askama e formulÃ¡rios
-   â””â”€â”€ API JSON /api
-            â”‚
-            â–¼
+   |
+   |-- pÃ¡ginas Askama e formulÃ¡rios
+   `-- API JSON /api
+            |
+            v
        Rotas Axum
-            â”‚
-            â”œâ”€â”€ autenticaÃ§Ã£o JWT
-            â”œâ”€â”€ validaÃ§Ãµes
-            â””â”€â”€ Repository
-                    â”‚
-                    â–¼
+            |
+            |-- autenticaÃ§Ã£o JWT
+            |-- validaÃ§Ãµes
+            `-- Repository
+                    |
+                    v
                PostgreSQL
 ```
 
@@ -115,16 +114,6 @@ Copy-Item .env.example .env
 
 No `.env`, substitua os valores de exemplo por segredos longos e aleatÃ³rios.
 
-Para gerar um segredo no PowerShell:
-
-```powershell
-$bytes = New-Object byte[] 48
-$generator = [Security.Cryptography.RandomNumberGenerator]::Create()
-$generator.GetBytes($bytes)
-$generator.Dispose()
-[Convert]::ToBase64String($bytes)
-```
-
 Em desenvolvimento local:
 
 ```env
@@ -139,7 +128,7 @@ COOKIE_SECURE=true
 
 ## Executar no Windows
 
-O script abaixo abre o Docker Desktop quando necessÃ¡rio, inicia o PostgreSQL, espera o banco ficar pronto, aplica as migrations e inicia a aplicaÃ§Ã£o:
+O script de desenvolvimento inicia o Docker quando necessÃ¡rio, sobe o PostgreSQL, aguarda o banco ficar pronto, aplica as migrations e inicia a aplicaÃ§Ã£o:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
@@ -165,26 +154,7 @@ cargo run
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-check.ps1
 ```
 
-O script executa:
-
-```text
-sqlx migrate run
-cargo fmt --check
-cargo check
-cargo test
-```
-
-## Testes cobertos
-
-- criaÃ§Ã£o de ativo;
-- listagem da carteira;
-- atualizaÃ§Ã£o;
-- exclusÃ£o;
-- resumo do patrimÃ´nio;
-- isolamento de leitura entre usuÃ¡rios;
-- bloqueio de ediÃ§Ã£o e exclusÃ£o por outro usuÃ¡rio;
-- rejeiÃ§Ã£o de valores invÃ¡lidos;
-- rejeiÃ§Ã£o de nomes duplicados na mesma carteira.
+O projeto possui testes automatizados para criaÃ§Ã£o, listagem, atualizaÃ§Ã£o, exclusÃ£o, resumo da carteira, validaÃ§Ãµes e isolamento entre usuÃ¡rios.
 
 ## API
 
@@ -211,6 +181,7 @@ Exemplo de criaÃ§Ã£o:
 ## Estrutura principal
 
 ```text
+docs/screenshots/        imagens do projeto
 migrations/              alteraÃ§Ãµes versionadas do banco
 scripts/                 automaÃ§Ãµes de execuÃ§Ã£o e qualidade
 src/auth/                autenticaÃ§Ã£o e sessÃ£o
@@ -248,4 +219,3 @@ compose.yml              PostgreSQL local
 ## Origem
 
 Projeto desenvolvido a partir do repositÃ³rio-base do desafio da Digital Innovation One e expandido com interface prÃ³pria, autenticaÃ§Ã£o reforÃ§ada, isolamento de dados, validaÃ§Ãµes e automaÃ§Ãµes de desenvolvimento.
-
