@@ -14,6 +14,42 @@ use crate::{
     repository::Repository,
 };
 
+const MAX_ASSET_NAME_LENGTH: usize = 80;
+
+fn validate_asset_name(name: String) -> Result<String, AppError> {
+    let normalized = name.trim().to_string();
+    let length = normalized.chars().count();
+
+    if normalized.is_empty() {
+        return Err(AppError::InvalidAssetData("Informe o nome do ativo."));
+    }
+
+    if length > MAX_ASSET_NAME_LENGTH {
+        return Err(AppError::InvalidAssetData(
+            "O nome do ativo deve possuir no máximo 80 caracteres.",
+        ));
+    }
+
+    Ok(normalized)
+}
+
+fn validate_positive_number(value: f64, message: &'static str) -> Result<f64, AppError> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(AppError::InvalidAssetData(message));
+    }
+
+    Ok(value)
+}
+
+fn map_asset_database_error(error: sqlx::Error) -> AppError {
+    match error {
+        sqlx::Error::Database(ref database_error) if database_error.is_unique_violation() => {
+            AppError::AssetNameTaken
+        }
+        other => AppError::Database(other),
+    }
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -55,14 +91,22 @@ async fn create_asset(
     repository: Repository,
     Json(request): Json<CreateAssetRequest>,
 ) -> Result<Json<Asset>, AppError> {
+    let name = validate_asset_name(request.name)?;
+    let unit_value = validate_positive_number(
+        request.unit_value,
+        "O valor unitário deve ser maior que zero.",
+    )?;
+    let quantity =
+        validate_positive_number(request.quantity, "A quantidade deve ser maior que zero.")?;
+
+    if repository.asset_name_exists(user.id(), &name, None).await? {
+        return Err(AppError::AssetNameTaken);
+    }
+
     let new_asset = repository
-        .create_asset(
-            user.id(),
-            request.name,
-            request.unit_value,
-            request.quantity,
-        )
-        .await?;
+        .create_asset(user.id(), name, unit_value, quantity)
+        .await
+        .map_err(map_asset_database_error)?;
 
     Ok(Json(new_asset))
 }
@@ -81,15 +125,52 @@ async fn update_asset(
     repository: Repository,
     Json(request): Json<UpdateAssetRequest>,
 ) -> Result<Json<Asset>, AppError> {
+    if request.id <= 0 {
+        return Err(AppError::InvalidAssetData(
+            "O identificador do ativo é inválido.",
+        ));
+    }
+
+    if request.name.is_none() && request.unit_value.is_none() && request.quantity.is_none() {
+        return Err(AppError::InvalidAssetData(
+            "Informe ao menos um campo para atualização.",
+        ));
+    }
+
+    let name = match request.name {
+        Some(name) => Some(validate_asset_name(name)?),
+        None => None,
+    };
+
+    let unit_value = match request.unit_value {
+        Some(value) => Some(validate_positive_number(
+            value,
+            "O valor unitário deve ser maior que zero.",
+        )?),
+        None => None,
+    };
+
+    let quantity = match request.quantity {
+        Some(value) => Some(validate_positive_number(
+            value,
+            "A quantidade deve ser maior que zero.",
+        )?),
+        None => None,
+    };
+
+    if let Some(ref asset_name) = name {
+        if repository
+            .asset_name_exists(user.id(), asset_name, Some(request.id))
+            .await?
+        {
+            return Err(AppError::AssetNameTaken);
+        }
+    }
+
     match repository
-        .update_asset(
-            user.id(),
-            request.id,
-            request.name,
-            request.unit_value,
-            request.quantity,
-        )
-        .await?
+        .update_asset(user.id(), request.id, name, unit_value, quantity)
+        .await
+        .map_err(map_asset_database_error)?
     {
         Some(updated_asset) => Ok(Json(updated_asset)),
         None => Err(AppError::AssetDoesNotExist),
@@ -301,5 +382,47 @@ mod tests {
         assert_eq!(owner_assets[0].name, "Ethereum");
         assert_eq!(owner_assets[0].unit_value, 30.0);
         assert_eq!(owner_assets[0].quantity, 3.0);
+    }
+    #[sqlx::test]
+    async fn test_rejects_invalid_asset_values(db: PgPool) {
+        let repository: Repository = db.into();
+        let user = create_test_user(&repository, "invalid_values_user").await;
+
+        let request = CreateAssetRequest {
+            name: "Ativo inválido".to_string(),
+            unit_value: f64::NAN,
+            quantity: 1.0,
+        };
+
+        let result = create_asset(user, repository, Json(request)).await;
+
+        assert!(matches!(result, Err(AppError::InvalidAssetData(_))));
+    }
+
+    #[sqlx::test]
+    async fn test_rejects_duplicate_asset_name_for_same_user(db: PgPool) {
+        let repository: Repository = db.into();
+        let user = create_test_user(&repository, "duplicate_name_user").await;
+        let user_id = user.id();
+
+        repository
+            .create_asset(user_id, "Bitcoin".to_string(), 10.0, 1.0)
+            .await
+            .expect("create first asset");
+
+        let request = CreateAssetRequest {
+            name: "  bitcoin  ".to_string(),
+            unit_value: 20.0,
+            quantity: 2.0,
+        };
+
+        let result = create_asset(
+            User::new(user_id, "duplicate_name_user".to_string()),
+            repository,
+            Json(request),
+        )
+        .await;
+
+        assert!(matches!(result, Err(AppError::AssetNameTaken)));
     }
 }

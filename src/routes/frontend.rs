@@ -20,6 +20,21 @@ use crate::{
     repository::Repository,
 };
 
+const MAX_ASSET_NAME_LENGTH: usize = 80;
+
+fn valid_positive_number(value: f64) -> bool {
+    value.is_finite() && value > 0.0
+}
+
+fn map_asset_database_error(error: sqlx::Error) -> AppError {
+    match error {
+        sqlx::Error::Database(ref database_error) if database_error.is_unique_violation() => {
+            AppError::AssetNameTaken
+        }
+        other => AppError::Database(other),
+    }
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(index))
@@ -187,11 +202,15 @@ async fn create_asset_from_form(
         return Ok(Redirect::to("/?status=empty-name"));
     }
 
-    if request.unit_value <= 0.0 {
+    if name.chars().count() > MAX_ASSET_NAME_LENGTH {
+        return Ok(Redirect::to("/?status=name-too-long"));
+    }
+
+    if !valid_positive_number(request.unit_value) {
         return Ok(Redirect::to("/?status=invalid-value"));
     }
 
-    if request.quantity <= 0.0 {
+    if !valid_positive_number(request.quantity) {
         return Ok(Redirect::to("/?status=invalid-quantity"));
     }
 
@@ -199,11 +218,15 @@ async fn create_asset_from_form(
         return Ok(Redirect::to("/?status=duplicate"));
     }
 
-    repository
+    match repository
         .create_asset(user.id(), name, request.unit_value, request.quantity)
-        .await?;
-
-    Ok(Redirect::to("/?status=created"))
+        .await
+        .map_err(map_asset_database_error)
+    {
+        Ok(_) => Ok(Redirect::to("/?status=created")),
+        Err(AppError::AssetNameTaken) => Ok(Redirect::to("/?status=duplicate")),
+        Err(error) => Err(error),
+    }
 }
 
 #[derive(Deserialize)]
@@ -233,11 +256,15 @@ async fn update_asset_from_form(
         return Ok(Redirect::to("/?status=empty-name"));
     }
 
-    if request.unit_value <= 0.0 {
+    if name.chars().count() > MAX_ASSET_NAME_LENGTH {
+        return Ok(Redirect::to("/?status=name-too-long"));
+    }
+
+    if !valid_positive_number(request.unit_value) {
         return Ok(Redirect::to("/?status=invalid-value"));
     }
 
-    if request.quantity <= 0.0 {
+    if !valid_positive_number(request.quantity) {
         return Ok(Redirect::to("/?status=invalid-quantity"));
     }
 
@@ -256,11 +283,14 @@ async fn update_asset_from_form(
             Some(request.unit_value),
             Some(request.quantity),
         )
-        .await?;
+        .await
+        .map_err(map_asset_database_error);
 
     match updated {
-        Some(_) => Ok(Redirect::to("/?status=updated")),
-        None => Ok(Redirect::to("/?status=not-found")),
+        Ok(Some(_)) => Ok(Redirect::to("/?status=updated")),
+        Ok(None) => Ok(Redirect::to("/?status=not-found")),
+        Err(AppError::AssetNameTaken) => Ok(Redirect::to("/?status=duplicate")),
+        Err(error) => Err(error),
     }
 }
 

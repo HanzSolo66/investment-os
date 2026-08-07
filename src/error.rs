@@ -17,6 +17,12 @@ pub enum AppError {
     #[error("asset does not exist")]
     AssetDoesNotExist,
 
+    #[error("asset data is invalid: {0}")]
+    InvalidAssetData(&'static str),
+
+    #[error("asset name is already registered")]
+    AssetNameTaken,
+
     #[error("user does not exist")]
     UserDoesNotExist,
 
@@ -60,6 +66,14 @@ impl IntoResponse for AppError {
             Self::AssetDoesNotExist => (
                 StatusCode::NOT_FOUND,
                 "O ativo solicitado não foi encontrado.",
+                false,
+            ),
+
+            Self::InvalidAssetData(message) => (StatusCode::UNPROCESSABLE_ENTITY, *message, false),
+
+            Self::AssetNameTaken => (
+                StatusCode::CONFLICT,
+                "Já existe um ativo cadastrado com esse nome.",
                 false,
             ),
 
