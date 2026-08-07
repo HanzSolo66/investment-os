@@ -35,7 +35,11 @@ impl App {
         dotenvy::dotenv().ok();
         let state = AppState::new().await?;
 
-        let listener = TcpListener::bind("0.0.0.0:3000").await?;
+        sqlx::migrate!().run(&state.db).await?;
+
+        let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+        let address = format!("0.0.0.0:{port}");
+        let listener = TcpListener::bind(&address).await?;
         let router = Router::new()
             .nest("/api", routes::api::router())
             .merge(routes::frontend::router())
